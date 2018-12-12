@@ -1,9 +1,4 @@
 #include "bankingServer.h"
-#include <limits.h>
-#include <signal.h>
-#include <sys/time.h>
-#include <fcntl.h>
-#include <semaphore.h>
 
 /******************************* GLOBALS **************************************/
 sem_t semaphore;
@@ -69,8 +64,14 @@ int main(int argc, char** argv)
 /* prints database every 15 seconds via SIGALRM */
 void sigalrm_print()
 {
+	int i;
 	sem_wait(&semaphore);
+	for(i = 0; i < 2; i++) {
 	print_db();
+	printf("sleeping %d\n", i);
+	sleep(8);
+	printf("waking up\n");
+	}
 	sem_post(&semaphore);
 }
 
@@ -143,9 +144,17 @@ void * request_acceptance_runner(void* arg)
 	while(1) {
 		//if sigint was called and the service runner has finished, join child threads, close server socket,  and exit own thread
 		if(services_shut_down) {
+			int close_ret = close(server_sockfd);
+			if(close_ret == -1) {
+				perror("close service: ");
+			}
+
 			join_threads(service_id_list);
+
 			free_service_ids(service_id_list);
+
 			pthread_exit(NULL);
+
 			return;
 		}
 
@@ -213,7 +222,6 @@ void free_service_ids(service_runner_id_node *service_id_list)
 	}
 }
 
-
 /* add a new id to the list of id nodes
  *
  * @param1 id the id of the thread to be added
@@ -270,13 +278,11 @@ void * client_service_runner(void* arg)
 		//get message from client
 		int recv_ret = recv(client_sockfd, client_message, sizeof(client_message), 0);
 
-		//no data received
+		//no data received; try again
 		if(recv_ret == -1) continue;
 
 		//client disconnected
 		if(recv_ret == 0 || strcmp(client_message, "quit") == 0) {
-			printf("disconnecting from client #%d\n", client_sockfd);
-
 			//if client was in session, end it
 			if(active_session)
 				exec_db_command(END, account_name, 0);
@@ -315,16 +321,19 @@ void * client_service_runner(void* arg)
 
 		//query returns a value, so we execute it separately if the session is in the correct state
 		if(status == 0 && command == QUERY) {
-			sem_wait(&semaphore);
 			balance = query_balance(account_name);
-			sem_post(&semaphore);
 		}
 
 		//if the session is in the correct state and the command is not a query, execute the command
 		if(status == 0 && command != QUERY){
-			sem_wait(&semaphore);
+			if(command == CREATE) {
+				printf("waiting\n");
+				sem_wait(&semaphore);
+			}
+
 			status = exec_db_command(command, account_name, amount);
-			sem_post(&semaphore);
+
+			if(command == CREATE) sem_post(&semaphore);
 		}
 
 		//if there was an error, alert the client 
@@ -448,7 +457,7 @@ void get_account_name(char client_message[300], char account_name[256])
 	i++;
 
 	int k = 0;
-	while(client_message[i] != '\0') {
+	while(client_message[i] != '\0' && k < 256) {
 		account_name[k] = client_message[i];
 		i++;
 		k++;

@@ -16,3 +16,4 @@ int withdraw(char account_name[255], double amount);
 double query_balance(char account_name[255]);
 int end_session(char account_name[256]);
 void print_db();
+void free_db();

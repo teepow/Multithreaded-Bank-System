@@ -8,6 +8,12 @@
 #include <netdb.h>
 #include <pthread.h>
 #include <limits.h>
+#include <limits.h>
+#include <signal.h>
+#include <sys/time.h>
+#include <fcntl.h>
+#include <semaphore.h>
+
 #include "database.h"
 
 /* node for linked list of service threads */

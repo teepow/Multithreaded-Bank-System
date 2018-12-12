@@ -1,5 +1,5 @@
 /*************************************************************************
- * This file handles all of the database operations for the banking server 
+  This file handles all of the database operations for the banking server 
                                                                
    Error codes:
  	-1 account already exists
@@ -8,7 +8,7 @@
  	-4 account not in session 
  	-5 insufficient funds 
          0 success 
- ***************************************************************************/
+ **************************************************************************/
 #include "database.h"
 
 typedef struct account account;
@@ -38,7 +38,6 @@ int hash_account_name(char account_name[256])
 	for(i = 0; i < strlen(account_name); i++) {
 		sum += account_name[i];
 	}
-	
 	return sum % SIZE_OF_DB;
 }
 
@@ -101,6 +100,7 @@ account* get_account(char account_name[256])
 		if(strcmp(ptr->name, account_name) == 0) {
 			return ptr;
 		}
+		ptr = ptr->next;
 	}
 
 	//account not found

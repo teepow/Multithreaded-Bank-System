@@ -57,6 +57,7 @@ int connect_to_server(char server_name[256], char port_num[10])
 			continue;
 		}
 
+
 		while(1) {
 			int connect_ret = connect(sockfd, ptr->ai_addr, ptr->ai_addrlen);
 			if(connect_ret != -1) break;
@@ -65,6 +66,7 @@ int connect_to_server(char server_name[256], char port_num[10])
 
 		//made connection
 		printf("connected to server\n");
+		freeaddrinfo(server_addr_info);
 		return sockfd;
 	}
 
@@ -76,13 +78,14 @@ void * user_input_runner(void* arg)
 {
 	server *server_info  = (server*) arg;
 
-	char user_input[265];
-
 	while(1) {
+		char user_input[263] = {'\0'};
 		get_user_input(user_input);
 
 		if(!input_is_valid(user_input)) {
-			printf("invalid input\n");
+			printf("Invalid input. Correct usage:\n\tcreate <accountname (char) >\n\tserve <accountname (char) >"
+					"\n\tdeposit <amount (double) >\n\twithdraw <amount (double) >"
+					"\n\tquery\n\tend\n\tquit\n");
 			continue;
 		}
 
@@ -100,20 +103,32 @@ void * user_input_runner(void* arg)
 	return;
 }
 
-void get_user_input(char user_input[265])
+void get_user_input(char user_input[263])
 {
 	printf("What would you like to do: \n");
 	
-	size_t input_size = 265;
-	getline(&user_input, &input_size, stdin);
+	char *buffer = malloc(263);
+	size_t input_size = 263;
+	getline(&buffer, &input_size, stdin);
+
+	int i = 0;
+	while(buffer[i] != '\0' && i < 263) {
+		user_input[i] = buffer[i];
+		i++;
+	}
+
+	free(buffer);
+
 	user_input[strlen(user_input) -1 ] = '\0';
 }
 
-int input_is_valid(char user_input[265])
+int input_is_valid(char user_input[263])
 {
 	regex_t regex;
 	int reti;
-	reti = regcomp(&regex, "(^(create|serve)[  ].+)|^(end|query|quit)$|(^(deposit|withdraw)[  ][0-9]+(\\.[0-9]+)?)$", REG_EXTENDED);
+	reti = regcomp(&regex, "(^(create|serve)[  ].+)"
+			"|^(end|query|quit)$"
+			"|(^(deposit|withdraw)[  ][0-9]+((\\.[0-9]+)?)|(\\.[0-9]+))$", REG_EXTENDED);
 	if(reti) {
 		fprintf(stderr, "Could not compile regex");
 		exit(EXIT_FAILURE);
@@ -125,9 +140,9 @@ int input_is_valid(char user_input[265])
 	return !reti;
 }
 
-void send_message_to_server(char user_input[265], server *server_info)
+void send_message_to_server(char user_input[263], server *server_info)
 {
-	int ret = send(server_info->sockfd, user_input, 265, 0);
+	int ret = send(server_info->sockfd, user_input, 263, 0);
 
 	if(ret <= 0) {
 		fprintf(stderr, "failed to send message to server\n");
