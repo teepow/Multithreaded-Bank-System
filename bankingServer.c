@@ -1,5 +1,23 @@
 #include "bankingServer.h"
 
+/******************************************************************************
+ * Banking Server
+ *
+ * main:
+ * 	set signal handlers for SIGALRM and SIGINT
+ * 	bind server to socket
+ * 	spawn request_acceptance_runner thread
+ *
+ * request_acceptance_runner:
+ * 	listens for new requests coming through the socket
+ * 	spawns client_service_runner threads for each request
+ *
+ * client_service_runner:
+ * 	accepts commands from client 
+ * 	executes commands on database
+ * 	sends error and success messages back to client
+ * ****************************************************************************/
+
 /******************************* GLOBALS **************************************/
 sem_t semaphore;
 
@@ -31,7 +49,7 @@ int main(int argc, char** argv)
 	
 	sem_init(&semaphore, 0, 1);
 
-	signal(SIGALRM, sigalrm_print);
+	signal(SIGALRM, handle_sigalrm);
 
 	struct itimerval it_val;
 
@@ -62,16 +80,10 @@ int main(int argc, char** argv)
 }
 
 /* prints database every 15 seconds via SIGALRM */
-void sigalrm_print()
+void handle_sigalrm()
 {
-	int i;
 	sem_wait(&semaphore);
-	for(i = 0; i < 2; i++) {
 	print_db();
-	printf("sleeping %d\n", i);
-	sleep(8);
-	printf("waking up\n");
-	}
 	sem_post(&semaphore);
 }
 
@@ -160,6 +172,11 @@ void * request_acceptance_runner(void* arg)
 
 		//if sigint was called and there are no services running, exit the thread
 		if(sig_int_called && num_clients == 0) {
+			int close_ret = close(server_sockfd);
+			if(close_ret == -1) {
+				perror("close service: ");
+			}
+
 			pthread_exit(NULL);
 			return;
 		}
@@ -294,6 +311,7 @@ void * client_service_runner(void* arg)
 			num_clients--;
 			pthread_mutex_unlock(&mutex);
 
+			pthread_exit(NULL);
 			break;
 		}
 
@@ -321,17 +339,18 @@ void * client_service_runner(void* arg)
 
 		//query returns a value, so we execute it separately if the session is in the correct state
 		if(status == 0 && command == QUERY) {
+			pthread_mutex_lock(&mutex);
 			balance = query_balance(account_name);
+			pthread_mutex_unlock(&mutex);
 		}
 
 		//if the session is in the correct state and the command is not a query, execute the command
 		if(status == 0 && command != QUERY){
-			if(command == CREATE) {
-				printf("waiting\n");
-				sem_wait(&semaphore);
-			}
+			if(command == CREATE) sem_wait(&semaphore);
 
+			pthread_mutex_lock(&mutex);
 			status = exec_db_command(command, account_name, amount);
+			pthread_mutex_unlock(&mutex);
 
 			if(command == CREATE) sem_post(&semaphore);
 		}

@@ -1,6 +1,23 @@
 #include "bankingClient.h"
 #include <regex.h>
 
+/**************************************************************
+ * Banking Client
+ *
+ * main: 
+ * 	make connection to server
+ *     	spawn user_input_runner and server_response threads
+ *
+ * user_input_runner:
+ * 	read input from stdin
+ * 	validate input
+ * 	send message to server
+ *
+ * server_response_runner:
+ * 	receive response from server
+ * 	print response to stdout
+ ***************************************************************/
+
 int main(int argc, char** argv) 
 {
 	if(argc != 3) {
@@ -32,6 +49,13 @@ int main(int argc, char** argv)
 	return 0;
 }
 
+/* Attempt to connect to server every 3 seconds
+ *
+ * @param1 server_name the domain name for the server
+ * @param2 port_num the string representation of the port number
+ *
+ * @return int the file descriptor for the server 
+ */
 int connect_to_server(char server_name[256], char port_num[10])
 {
 	int sockfd, ret;
@@ -74,6 +98,12 @@ int connect_to_server(char server_name[256], char port_num[10])
 	return -1;
 }
 
+/* Thread runner to accpet user input.
+ * Checks that input is valid then sends the message to the server
+ *
+ * @param1 arg a void pointer to a server struct containing
+ * 	   the server name, port number, and file descriptor for the server
+ */
 void * user_input_runner(void* arg) 
 {
 	server *server_info  = (server*) arg;
@@ -103,6 +133,10 @@ void * user_input_runner(void* arg)
 	return;
 }
 
+/* Read input from stdin
+ *
+ * @param1 user_input char pointer in which to put the input
+ */
 void get_user_input(char user_input[263])
 {
 	printf("What would you like to do: \n");
@@ -110,6 +144,7 @@ void get_user_input(char user_input[263])
 	char *buffer = malloc(263);
 	size_t input_size = 263;
 	getline(&buffer, &input_size, stdin);
+
 
 	int i = 0;
 	while(buffer[i] != '\0' && i < 263) {
@@ -122,6 +157,12 @@ void get_user_input(char user_input[263])
 	user_input[strlen(user_input) -1 ] = '\0';
 }
 
+/* Checks that the user input is valid by the rules defined in proj description
+ *
+ * @param1 user_input the input read from stdin
+ *
+ * @return 1 if input is valid; 0 otherwise
+ */
 int input_is_valid(char user_input[263])
 {
 	regex_t regex;
@@ -140,6 +181,11 @@ int input_is_valid(char user_input[263])
 	return !reti;
 }
 
+/* Send valid input to the server
+ *
+ * @param1 user_input the input read from stdin
+ * @param2 server_info server struct containing info on the server
+ */
 void send_message_to_server(char user_input[263], server *server_info)
 {
 	int ret = send(server_info->sockfd, user_input, 263, 0);
@@ -151,6 +197,10 @@ void send_message_to_server(char user_input[263], server *server_info)
 	return;
 }
 
+/* Thread runner to receive responses from server and print them to stdout
+ *
+ * @param1 arg void pointer to server struct containing info pertaining to the server
+ */
 void * server_response_runner(void* arg) 
 {
 	int ret;

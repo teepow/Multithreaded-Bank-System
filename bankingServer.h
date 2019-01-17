@@ -41,7 +41,7 @@ bool active_session_needed(db_command command);
 int exec_db_command(db_command command, char account_name[256], double amount);
 void send_error_to_client(int status, int client_sockfd);
 void send_message_to_client(db_command command, double balance, int client_sockfd);
-void sigalrm_print();
+void handle_sigalrm();
 void add_id_to_list(pthread_t id, service_runner_id_node **service_id_list);
 void join_threads(service_runner_id_node *service_id_list);
 void free_service_ids(service_runner_id_node *service_id_list);
